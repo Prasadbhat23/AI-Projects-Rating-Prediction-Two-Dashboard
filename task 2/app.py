@@ -7,60 +7,54 @@ import openai
 from dotenv import load_dotenv
 import csv
 
-# Load API key: Streamlit secrets (Cloud) or .env (Local)
+# ------------------- Load API Key ------------------- #
 if "openai" in st.secrets:
     openai.api_key = st.secrets["openai"]["api_key"]
 else:
-    from dotenv import load_dotenv
     load_dotenv()
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     openai.api_key = OPENAI_API_KEY
 
-# CSV storage
+# ------------------- CSV Storage ------------------- #
 DATA_DIR = "data"
 CSV_PATH = os.path.join(DATA_DIR, "feedback.csv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# Create CSV if missing
+# Create CSV if missing with correct columns
 if not os.path.exists(CSV_PATH):
     df = pd.DataFrame(columns=[
         "timestamp", "rating", "review", "ai_response", "ai_summary", "ai_actions"
     ])
     df.to_csv(CSV_PATH, index=False, quoting=csv.QUOTE_ALL)
 
-st.set_page_config(page_title="User Feedback Dashboard", layout="centered")
-
-
-# ---------------- SAFE CSV FUNCTIONS ---------------- #
-
+# ------------------- Safe CSV Functions ------------------- #
 def safe_read_csv():
     if not os.path.exists(CSV_PATH):
-        # Create new clean CSV
-        df = pd.DataFrame(columns=["review", "sentiment", "stars"])
-        df.to_csv(CSV_PATH, index=False, encoding="utf-8")
+        df = pd.DataFrame(columns=[
+            "timestamp", "rating", "review", "ai_response", "ai_summary", "ai_actions"
+        ])
+        df.to_csv(CSV_PATH, index=False, quoting=csv.QUOTE_ALL)
         return df
 
     try:
-        return pd.read_csv(CSV_PATH, encoding="utf-8", engine="python")
+        return pd.read_csv(CSV_PATH, encoding="utf-8")
     except UnicodeDecodeError:
-        print("⚠️ UTF-8 decode failed. Retrying with latin1...")
-        return pd.read_csv(CSV_PATH, encoding="latin1", engine="python", on_bad_lines='skip')
+        return pd.read_csv(CSV_PATH, encoding="latin1", on_bad_lines='skip')
     except Exception as e:
-        print(f"⚠️ Error reading CSV: {e}. Recreating clean file...")
-        df = pd.DataFrame(columns=["review", "sentiment", "stars"])
-        df.to_csv(CSV_PATH, index=False, encoding="utf-8")
+        print(f"⚠️ Error reading CSV: {e}. Recreating file...")
+        df = pd.DataFrame(columns=[
+            "timestamp", "rating", "review", "ai_response", "ai_summary", "ai_actions"
+        ])
+        df.to_csv(CSV_PATH, index=False, quoting=csv.QUOTE_ALL)
         return df
 
-
 def save_feedback(row):
-    """Safely appends one row to CSV."""
+    """Append one row to CSV safely"""
     df = safe_read_csv()
     df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     df.to_csv(CSV_PATH, index=False, quoting=csv.QUOTE_ALL)
 
-
-# ---------------- LLM FUNCTIONS ---------------- #
-
+# ------------------- AI Functions ------------------- #
 def call_llm_for_user_response(review, rating):
     if not OPENAI_API_KEY:
         return "Demo: (no API key) Thanks for your review!"
@@ -69,17 +63,16 @@ def call_llm_for_user_response(review, rating):
         model="gpt-4o-mini",
         messages=[{
             "role": "user",
-            "content": f"You are a friendly support agent. Write a warm, short reply to this {rating}-star review: {review}"
+            "content": f"You are a friendly support agent. Write a short warm reply to this {rating}-star review: {review}"
         }],
         max_tokens=150,
         temperature=0.6,
     )
     return resp.choices[0].message.content.strip()
 
-
 def call_llm_for_summary_and_actions(review):
     if not OPENAI_API_KEY:
-        return "Demo summary (no API key)", "Demo actions (no API key)"
+        return "Demo summary", "Demo actions"
 
     summary_resp = openai.chat.completions.create(
         model="gpt-4o-mini",
@@ -104,9 +97,8 @@ def call_llm_for_summary_and_actions(review):
         actions_resp.choices[0].message.content.strip()
     )
 
-
-# ---------------- UI ---------------- #
-
+# ------------------- Streamlit UI ------------------- #
+st.set_page_config(page_title="User Feedback Portal", layout="centered")
 st.title("⭐ User Feedback Portal")
 
 with st.form("feedback_form"):
@@ -137,6 +129,6 @@ if submitted:
             "ai_actions": ai_actions
         })
 
-        st.success("Your feedback was submitted successfully!")
+        st.success("✅ Your feedback was submitted successfully!")
         st.write("### 🤖 AI Response")
         st.write(ai_response)
