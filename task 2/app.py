@@ -15,7 +15,7 @@ else:
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ------------------- SQLite Setup ------------------- #
-DB_PATH = os.path.join(os.path.dirname(__file__), "feedback.db")
+DB_PATH = "feedback.db" 
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 c = conn.cursor()
 
