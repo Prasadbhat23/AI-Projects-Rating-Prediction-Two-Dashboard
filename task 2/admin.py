@@ -31,7 +31,7 @@ if st.sidebar.button("🚪 Logout"):
     st.rerun()
 
 # ------------------- SQLite Setup ------------------- #
-DB_PATH = os.path.join(os.path.dirname(__file__), "feedback.db")
+DB_PATH = "feedback.db" 
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 c = conn.cursor()
 
@@ -54,8 +54,9 @@ rows = c.fetchall()
 df = pd.DataFrame(rows, columns=["timestamp", "rating", "review", "ai_response", "ai_summary", "ai_actions"])
 
 if df.empty:
-    st.info("No feedback entries found yet.")
-    st.stop()
+    st.info("No feedback entries yet.")
+    # Do NOT stop, just continue
+
 
 df['timestamp'] = pd.to_datetime(df['timestamp'])
 
