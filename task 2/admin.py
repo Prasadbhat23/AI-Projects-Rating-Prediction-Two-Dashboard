@@ -1,15 +1,12 @@
 # admin.py
 import streamlit as st
+import sqlite3
 import pandas as pd
+from datetime import datetime
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-DATA_DIR = "data"
-CSV_PATH = os.path.join(DATA_DIR, "feedback.csv")
+# ------------------- Admin Password ------------------- #
 PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
-
 st.set_page_config(page_title="Admin Dashboard", layout="wide")
 
 # Authentication
@@ -18,66 +15,71 @@ if "auth" not in st.session_state:
 
 if not st.session_state.auth:
     st.title("🔐 Admin Login")
-
     pwd = st.text_input("Enter admin password", type="password")
-    login_btn = st.button("Login")
-
-    if login_btn:
+    if st.button("Login"):
         if pwd == PASSWORD:
             st.session_state.auth = True
             st.rerun()
         else:
             st.error("❌ Wrong password")
-
     st.stop()
 
-# LOGOUT BUTTON
+# Logout
 st.sidebar.title("Account")
 if st.sidebar.button("🚪 Logout"):
     st.session_state.auth = False
     st.rerun()
-# Load data
-if os.path.exists(CSV_PATH):
-    df = pd.read_csv(CSV_PATH)
-else:
-    st.warning("No feedback data found.")
+
+# ------------------- SQLite Setup ------------------- #
+DB_PATH = os.path.join(os.path.dirname(__file__), "feedback.db")
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+c = conn.cursor()
+
+# Read data
+c.execute("SELECT * FROM feedback ORDER BY timestamp DESC")
+rows = c.fetchall()
+df = pd.DataFrame(rows, columns=["timestamp", "rating", "review", "ai_response", "ai_summary", "ai_actions"])
+if df.empty:
+    st.info("No feedback entries found yet.")
     st.stop()
 
 df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-# --- Filters ---
+# ------------------- Filters ------------------- #
 st.sidebar.title("Filters")
-rating_filter = st.sidebar.multiselect("Select Ratings", options=[1,2,3,4,5], default=[1,2,3,4,5])
-start_date = st.sidebar.date_input("Start Date", df['timestamp'].min())
-end_date = st.sidebar.date_input("End Date", df['timestamp'].max())
+rating_filter = st.sidebar.multiselect(
+    "Select Ratings", options=[1,2,3,4,5], default=[1,2,3,4,5]
+)
 keyword = st.sidebar.text_input("Search Keyword", "")
 
 filtered_df = df[
     (df['rating'].isin(rating_filter)) &
-    (df['timestamp'].dt.date >= start_date) &
-    (df['timestamp'].dt.date <= end_date) &
     (df['review'].str.contains(keyword, case=False, na=False))
 ]
 
-# --- Metrics ---
+# ------------------- Metrics ------------------- #
 st.title("📊 Admin Dashboard")
 col1, col2, col3 = st.columns(3)
 col1.metric("Total Reviews", len(filtered_df))
-col2.metric("Average Rating", round(filtered_df["rating"].mean(), 2) if not filtered_df.empty else 0)
-col3.metric("5-Star Reviews", len(filtered_df[filtered_df["rating"] == 5]))
+col2.metric("Average Rating", round(filtered_df["rating"].mean(), 2))
+col3.metric("5-Star Reviews", len(filtered_df[filtered_df["rating"]==5]))
 
-# --- Ratings Distribution ---
+# ------------------- Ratings Distribution ------------------- #
 st.subheader("Ratings Distribution")
-st.bar_chart(filtered_df['rating'].value_counts().sort_index(), width=700)
+if not filtered_df.empty:
+    st.bar_chart(filtered_df['rating'].value_counts().sort_index())
+else:
+    st.info("No data to display.")
 
-# --- Review Table with Expanders ---
+# ------------------- Review Details ------------------- #
 st.subheader("Reviews")
 if not filtered_df.empty:
-    for i, row in filtered_df.sort_values("timestamp", ascending=False).iterrows():
+    for _, row in filtered_df.sort_values("timestamp", ascending=False).iterrows():
         with st.expander(f"⭐ {row['rating']} | {row['timestamp'].strftime('%Y-%m-%d %H:%M')}"):
             st.write(f"**Review:** {row['review']}")
+            st.write(f"**AI Response:** {row['ai_response']}")
             st.write(f"**AI Summary:** {row['ai_summary']}")
             st.write(f"**AI Actions:** {row['ai_actions']}")
 else:
-    st.info("No reviews match the current filters.")
+    st.info("No reviews match current filters.")
 
