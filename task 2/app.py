@@ -12,13 +12,14 @@ if "openai" in st.secrets:
 else:
     from dotenv import load_dotenv
     load_dotenv()
-    import os
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ------------------- SQLite Setup ------------------- #
 DB_PATH = os.path.join(os.path.dirname(__file__), "feedback.db")
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 c = conn.cursor()
+
+# ✅ Create table if missing
 c.execute('''
 CREATE TABLE IF NOT EXISTS feedback (
     timestamp TEXT,
