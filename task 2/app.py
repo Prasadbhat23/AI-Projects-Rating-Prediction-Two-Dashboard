@@ -7,10 +7,14 @@ import openai
 from dotenv import load_dotenv
 import csv
 
-# Load environment variables
-load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
+# Load API key: Streamlit secrets (Cloud) or .env (Local)
+if "openai" in st.secrets:
+    openai.api_key = st.secrets["openai"]["api_key"]
+else:
+    from dotenv import load_dotenv
+    load_dotenv()
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    openai.api_key = OPENAI_API_KEY
 
 # CSV storage
 DATA_DIR = "data"
