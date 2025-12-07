@@ -2,14 +2,14 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime
 import os
 
 # ------------------- Admin Password ------------------- #
 PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+
 st.set_page_config(page_title="Admin Dashboard", layout="wide")
 
-# Authentication
+# ------------------- Authentication ------------------- #
 if "auth" not in st.session_state:
     st.session_state.auth = False
 
@@ -35,10 +35,24 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "feedback.db")
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 c = conn.cursor()
 
-# Read data
+# ✅ Create table if missing
+c.execute('''
+CREATE TABLE IF NOT EXISTS feedback (
+    timestamp TEXT,
+    rating INTEGER,
+    review TEXT,
+    ai_response TEXT,
+    ai_summary TEXT,
+    ai_actions TEXT
+)
+''')
+conn.commit()
+
+# ------------------- Read Data ------------------- #
 c.execute("SELECT * FROM feedback ORDER BY timestamp DESC")
 rows = c.fetchall()
 df = pd.DataFrame(rows, columns=["timestamp", "rating", "review", "ai_response", "ai_summary", "ai_actions"])
+
 if df.empty:
     st.info("No feedback entries found yet.")
     st.stop()
@@ -47,9 +61,7 @@ df['timestamp'] = pd.to_datetime(df['timestamp'])
 
 # ------------------- Filters ------------------- #
 st.sidebar.title("Filters")
-rating_filter = st.sidebar.multiselect(
-    "Select Ratings", options=[1,2,3,4,5], default=[1,2,3,4,5]
-)
+rating_filter = st.sidebar.multiselect("Select Ratings", options=[1,2,3,4,5], default=[1,2,3,4,5])
 keyword = st.sidebar.text_input("Search Keyword", "")
 
 filtered_df = df[
@@ -82,4 +94,3 @@ if not filtered_df.empty:
             st.write(f"**AI Actions:** {row['ai_actions']}")
 else:
     st.info("No reviews match current filters.")
-
